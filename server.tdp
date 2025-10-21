@@ -1,0 +1,123 @@
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Required to get __dirname in ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(express.static(__dirname));
+
+// Serve HTML file
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'sell-property.html'));
+});
+
+//for server to data listing on homepage
+app.get('/api/properties', async (req, res) => {
+  try {
+    // You can filter here if needed (e.g., only approved listings)
+    const listings = await Property.find().sort({ createdAt: -1 });
+    res.status(200).json(listings);
+  } catch (error) {
+    console.error('❌ Failed to fetch properties:', error);
+    res.status(500).json({ message: 'Error fetching properties', error });
+  }
+});
+
+const listings = await Property.find({ status: 'approved' }).sort({ createdAt: -1 });
+
+
+app.use(express.urlencoded({ extended: true }));
+// MongoDB connection
+mongoose.connect('mongodb://localhost:27017/property99')
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+
+
+// Mongoose Schema for property listings
+const propertySchema = new mongoose.Schema({
+  listingType: { type: String, required: true },
+  propertyType: { type: String, required: true },
+  propertyTitle: { type: String, required: true },
+  propertyDescription: { type: String, required: true },
+  bedrooms: String,
+  bathrooms: String,
+  builtupArea: Number,
+  carpetArea: Number,
+  totalFloors: String,
+  propertyFloor: String,
+  furnishing: String,
+  facing: String,
+  propertyAge: String,
+  address: { type: String, required: true },
+  city: { type: String, required: true },
+  locality: { type: String, required: true },
+  pincode: { type: String, required: true },
+  landmark: String,
+  amenities: [String],
+  propertyImages: [String], // Placeholder for future image handling
+  expectedPrice: { type: Number, required: true },
+  priceUnit: { type: String, default: 'total' },
+  negotiable: { type: String, default: 'no' },
+  availability: String,
+  availableDate: Date,
+  ownerName: { type: String, required: true },
+  ownerType: { type: String, required: true },
+  contactPhone: { type: String, required: true },
+  contactEmail: { type: String, required: true },
+  contactTime: String,
+  whatsappUpdates: { type: Boolean, default: false },
+  agreeTerms: { type: Boolean, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+
+const Property = mongoose.model('Property', propertySchema);
+
+
+
+// POST route to save form data
+app.post('/api/sell-property', async (req, res) => {
+  try {
+    const formData = req.body;
+    console.log("📝 Received form data:", formData);
+
+    // Convert checkboxes
+    formData.agreeTerms = formData.agreeTerms === 'on';
+    formData.whatsappUpdates = formData.whatsappUpdates === 'on';
+
+    // 🔧 Sanitize propertyImages
+    if (Array.isArray(formData.propertyImages)) {
+      formData.propertyImages = formData.propertyImages
+        .filter(img => typeof img === 'string' && img.trim() !== '');
+    } else if (typeof formData.propertyImages === 'string') {
+      formData.propertyImages = [formData.propertyImages];
+    } else {
+      formData.propertyImages = []; // fallback
+    }
+
+    const property = new Property(formData);
+    await property.save();
+    res.status(201).json({ message: 'Property listed successfully!' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error saving property', error });
+  }
+});
+
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
